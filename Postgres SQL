@@ -1,0 +1,131 @@
+2.	Create a PostgreSQL database:
+CREATE DATABASE "CUNY"
+  WITH ENCODING='UTF8'
+       OWNER=postgres
+       CONNECTION LIMIT=-1;
+
+REVOKE ALL ON DATABASE "CUNY" FROM public;
+GRANT ALL ON DATABASE "CUNY" TO public;
+
+CREATE SCHEMA cuny_homework;
+GRANT ALL ON SCHEMA cuny_homework TO public;
+
+
+3.	Create three tables in the database:
+======================
+CREATE TYPE address AS
+(
+  street1	text,
+  street2	text,
+  city		text,
+  state		text,
+  zip		text
+)
+
+======================
+CREATE TABLE cuny_homework.customer
+(
+  cust_id serial NOT NULL, -- Autoincrementing ID
+  cust_name text NOT NULL, -- Customer Name
+  cust_addr address, -- Address of customer
+  CONSTRAINT cust_pk PRIMARY KEY (cust_id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE cuny_homework.customer
+  OWNER TO postgres;
+COMMENT ON COLUMN cuny_homework.customer.cust_id IS 'Autoincrementing ID';
+COMMENT ON COLUMN cuny_homework.customer.cust_name IS 'Customer Name';
+COMMENT ON COLUMN cuny_homework.customer.cust_addr IS 'Address of customer';
+
+======================
+CREATE TABLE cuny_homework.products
+(
+  prod_id serial NOT NULL, -- Product Identifier
+  prod_name text, -- Name of the Product
+  prod_price money, -- Price of the Product in $
+  CONSTRAINT prod_pk PRIMARY KEY (prod_id),
+  CONSTRAINT prod_uk UNIQUE (prod_name)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE cuny_homework.products
+  OWNER TO postgres;
+COMMENT ON COLUMN cuny_homework.products.prod_id IS 'Product Identifier';
+COMMENT ON COLUMN cuny_homework.products.prod_name IS 'Name of the Product';
+COMMENT ON COLUMN cuny_homework.products.prod_price IS 'Price of the Product in $';
+
+======================
+CREATE TABLE cuny_homework."order"
+(
+  ordr_number serial NOT NULL, -- Order Number
+  cust_numb integer NOT NULL, -- Customer ID from Customer table
+  prod_numb integer NOT NULL, -- Product ID from Product table
+  ordr_date timestamp with time zone NOT NULL default now(), -- Time of Order
+  CONSTRAINT ordr_pk PRIMARY KEY (ordr_number),
+  CONSTRAINT cust_fk FOREIGN KEY (cust_numb)
+      REFERENCES cuny_homework.customer (cust_id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT prod_fk FOREIGN KEY (prod_numb)
+      REFERENCES cuny_homework.products (prod_id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE cuny_homework."order"
+  OWNER TO postgres;
+COMMENT ON COLUMN cuny_homework."order".ordr_number IS 'Order Number';
+COMMENT ON COLUMN cuny_homework."order".prod_numb IS 'Product ID from Product table';
+COMMENT ON COLUMN cuny_homework."order".ordr_date IS 'Time of Order';
+
+
+4.	Populate the three tables with at least 5 rows in each table:
+
+Inserting into Customer Table:
+insert into cuny_homework.customer (cust_name, cust_addr)
+   values ('Partho Banerjee', row('11218 Gates Ter', Null, 'Johns Creek', 'GA', '30097'))
+insert into cuny_homework.customer (cust_name, cust_addr)
+   values ('Andrew Catlin', row('CUNY', 'SPS', 'New York', 'NY', '12345'))
+insert into cuny_homework.customer (cust_name, cust_addr)
+   values ('Michael Horton', row('1245 Golden Harvest Drive', Null, 'Herndon', 'VA', '20152'))
+insert into cuny_homework.customer (cust_name, cust_addr)
+   values ('Paul Russo', row('5204 American Avenue', Null, 'King of Prussia', 'PA', '19004'))
+insert into cuny_homework.customer (cust_name, cust_addr)
+   values ('Cathy Bone', row('3009 West Bay Road', 'Apt# 205', 'Los Angeles', 'CA', '89244'))
+
+
+Loading data into PRODUCTS Table from external CSV file:
+delete from cuny_homework.products;
+copy cuny_homework.products from 'E:\Product.txt' (delimiter ',');
+select * from cuny_homework.products;
+
+
+Inserting into ORDER Table:
+insert into cuny_homework.order (cust_numb, prod_numb)   values (1, 2);
+insert into cuny_homework.order (cust_numb, prod_numb, ordr_date ) 
+values
+ (1, 4, '2013-10-01'),
+ (2, 1, '2013-03-12'),
+ (2, 5, '2013-03-12'),
+ (1, 3, '2012-12-25');
+
+
+5.	Write a SQL Select statement that joins information from the tables:
+
+SQL with Inner Join:
+select a.ordr_number, to_char(a.ordr_date,'DD-Mon-YYYY') "Order Date",
+	b.cust_name, b.cust_addr, (b.cust_addr).state, (b.cust_addr).zip, 
+	c.prod_name, c.prod_price
+from cuny_homework."order" a, cuny_homework.customer b, cuny_homework.products c
+where a.cust_numb = b.cust_id
+and a.prod_numb = c.prod_id
+order by a.ordr_date
+
+SQL with Left Join:
+select b.cust_name, b.cust_addr, (b.cust_addr).state, (b.cust_addr).zip, a.ordr_number, c.prod_name, c.prod_price
+from cuny_homework.customer b left join cuny_homework."order" a on a.cust_numb = b.cust_id
+left join cuny_homework.products c on a.prod_numb = c.prod_id
+order by b.cust_name
